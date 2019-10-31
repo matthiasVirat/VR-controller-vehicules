@@ -6,7 +6,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.*;
 
 @RestController
@@ -17,29 +19,14 @@ public class VehiculeDataController {
     private String oneVehiculeURL = "http://172.22.119.157:9081/vehicule/{registrationNbr}";
     private String createVehiculeURL = "http://172.22.119.157:9081/vehicule/create/";
     private String deleteVehiculeURL = "http://172.22.119.157:9081/vehicule/delete/{registrationNbr}";
-
-    //Test
     private String immatNotFreeURL = "http://172.22.119.142:9093/reservations/immat/notfree/";
-
-
-//    public List<String> listFreeVehicles = getVehiculeImmatFree(20191031, 20191103);
-
-
-    //Gets all registration numbers for vehicles not billed from the resercation controller microservice
-//    @ApiOperation(value = "Calls the Reservations controller and returns a list of registration numbers (immac) which are free")
-//    @GetMapping(value = "vehicule/notBilled/{demandeDateDebut}/{demandeDateFin}")
-//    public List<String> getVehiculeImmatFree(@PathVariable int demandeDateDebut, @PathVariable int demandeDateFin) {
-//        String[] vehiculeNotBilledList = restTemplate.getForObject(immatNotFreeURL + demandeDateDebut +"/" + demandeDateFin, String[].class);
-//        return new ArrayList<>(Arrays.asList(vehiculeNotBilledList));
-//    }
+    private String updateVehiculeURL = "http://172.22.119.157:9081/vehicule/update/";
 
     @ApiOperation(value = "Calls the Reservations controller and returns a list of vehicles which are available")
     @GetMapping(value = "vehicule/listDispo/{demandeDateDebut}/{demandeDateFin}")
     public List<Vehicule> getVehiculeImmatFree(@PathVariable int demandeDateDebut, @PathVariable int demandeDateFin) {
         String[] vehiculeNotBilledList = restTemplate.getForObject(immatNotFreeURL + demandeDateDebut + "/" + demandeDateFin, String[].class);
-
         Vehicule[] vehiculeList = getVehiculeList();
-
         List<Vehicule> listVehiculeDispo = new ArrayList<>();
 
 //        for (int i = 0; i < vehiculeList.length; i++) {
@@ -58,14 +45,6 @@ public class VehiculeDataController {
 
         return listVehiculeDispo;
     }
-
-
-//    //Gets all registration numbers for vehicles not billed from the resercation controller microservice
-//    @GetMapping(value = "vehicule/notBilled/{demandeDateDebut}/{demandeDateFin}")
-//    public ResponseEntity<String> getImmacNotBilled(@PathVariable int demandeDateDebut, @PathVariable int demandeDateFin) {
-//        ResponseEntity<String> result = restTemplate.getForEntity("http://172.22.119.142:9093/reservations/immat/notfree/" + demandeDateDebut +"/" + demandeDateFin, String.class);
-//        return result;
-//    }
 
 
     //Gets the list of vehicles from the vehicle microservice/////////////
@@ -93,21 +72,27 @@ public class VehiculeDataController {
         restTemplate.delete(deleteVehiculeURL, params);
     }
 
-    //Updates a vehicule using the vehicle microservice(same method as creating a vehicule)
-    @ApiOperation(value = "Updates a vehicule using the vehicle microservice(same method as creating a vehicule")
-    @PostMapping(value = "vehicule/update/")
-    public Vehicule updateVehicule(Vehicule vehicule) {
-        Vehicule result = restTemplate.postForObject(createVehiculeURL, vehicule, Vehicule.class);
-        return result;
+    @PostMapping(value = "vehicule/update")
+    public void updateVehicule(@RequestBody Vehicule vehicule){
+        restTemplate.put(updateVehiculeURL, vehicule);
     }
 
-    //Creates a vehicule using the vehicle microservice
-    @ApiOperation(value = "Creates a vehicule using the vehicle microservice")
-    @PostMapping(value = "vehicule/create")
-    public Vehicule saveVehicule(Vehicule vehicule) {
-        Vehicule result = restTemplate.postForObject(createVehiculeURL, vehicule, Vehicule.class);
-        return result;
-    }
+    @PostMapping(value = "/vehicule/create")
+    public ResponseEntity<Void> addVehicule(@RequestBody Vehicule vehicule){
 
+        Vehicule vehiculeAdded = restTemplate.postForObject(createVehiculeURL, vehicule, Vehicule.class);
+
+        if(vehiculeAdded == null)
+            return ResponseEntity.noContent().build();
+
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(vehiculeAdded.getRegistrationNbr()) // Possibly change to registration_nbr
+                .toUri();
+
+        return ResponseEntity.created(location).build();
+
+    }
 
 }
